@@ -5,9 +5,9 @@
 > security fixes there. See [FORK.md](FORK.md) for the changes made and
 > [SECURITY.md](SECURITY.md) to report a vulnerability.
 
-# MinIO Console
+# MinIO Console (community fork)
 
-![build](https://github.com/minio/console/workflows/Go/badge.svg) ![license](https://img.shields.io/badge/license-AGPL%20V3-blue)
+[![fork of minio/console v1.7.6](https://img.shields.io/badge/fork%20of-minio%2Fconsole%20v1.7.6-orange)](FORK.md) [![used by boson-science/minio](https://img.shields.io/badge/used%20by-boson--science%2Fminio-blue)](https://github.com/boson-science/minio) [![Go 1.23](https://img.shields.io/badge/go-1.23-00ADD8)](go.mod) [![license AGPL v3](https://img.shields.io/badge/license-AGPL%20v3-blue)](LICENSE)
 
 A graphical user interface for [MinIO](https://github.com/minio/minio)
 
@@ -18,9 +18,7 @@ A graphical user interface for [MinIO](https://github.com/minio/minio)
 <!-- markdown-toc start - Don't edit this section. Run M-x markdown-toc-refresh-toc -->
 **Table of Contents**
 
-- [MinIO Console](#minio-console)
-  - [Install](#install)
-    - [Build from source](#build-from-source)
+- [MinIO Console (community fork)](#minio-console-community-fork)
   - [Setup](#setup)
     - [1. Create a user `console` using `mc`](#1-create-a-user-console-using-mc)
     - [2. Create a policy for `console` with admin access to all resources (for testing)](#2-create-a-policy-for-console-with-admin-access-to-all-resources-for-testing)
@@ -28,6 +26,7 @@ A graphical user interface for [MinIO](https://github.com/minio/minio)
   - [Start Console service:](#start-console-service)
   - [Start Console service with TLS:](#start-console-service-with-tls)
   - [Connect Console to a Minio using TLS and a self-signed certificate](#connect-console-to-a-minio-using-tls-and-a-self-signed-certificate)
+  - [Debug logging](#debug-logging)
 - [Contribute to console Project](#contribute-to-console-project)
 
 <!-- markdown-toc end -->
@@ -221,4 +220,4 @@ The detailed logging also includes all request and response headers (if any).
  
 # Contribute to console Project
 
-Please follow console [Contributor's Guide](https://github.com/minio/console/blob/master/CONTRIBUTING.md)
+Please follow the [Contributor's Guide](CONTRIBUTING.md). Security issues go through [SECURITY.md](SECURITY.md).
