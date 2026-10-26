@@ -20,7 +20,7 @@ Bug Fix:
 
 Deprecations:
 
-- Deprecated support tools User Interface in favor of mc admin commands. Please refer to the [MinIO SUBNET Registration page](https://min.io/docs/minio/linux/administration/console/subnet-registration.html#subnet) for more information.
+- Deprecated support tools User Interface in favor of mc admin commands.
 - Deprecated Site replication User Interface in favor of mc admin commands. Please refer to the [MinIO Site Replication page](https://min.io/docs/minio/linux/operations/install-deploy-manage/multi-site-replication.html) for more information.
 - Deprecated Lifecycle & Tiers User Interface in favor of mc admin commands. Please refer to the [MinIO Tiers page](https://min.io/docs/minio/linux/reference/minio-mc/mc-ilm-tier.html) for more information.
 
@@ -59,7 +59,7 @@ Bug Fix:
 
 Additional Changes:
 
-- Added debug logging for console HTTP request (see [PR #3440](https://github.com/minio/console/pull/3440) for more detailed information)
+- Added debug logging for console HTTP request (upstream PR minio/console#3440)
 
 ## Release v1.7.0
 
