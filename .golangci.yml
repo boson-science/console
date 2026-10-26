@@ -1,0 +1,46 @@
+linters-settings:
+  golint:
+    min-confidence: 0
+
+  misspell:
+    locale: US
+
+  goheader:
+    values:
+      regexp:
+        copyright-holder: Copyright \(c\) (20\d\d\-20\d\d)|2021|({{year}})
+    template-path: .license.tmpl
+
+linters:
+  disable-all: true
+  enable:
+    - goimports
+    - misspell
+    - govet
+    - revive
+    - ineffassign
+    - gosimple
+    - gomodguard
+    - gofmt
+    - unused
+    - staticcheck
+    - unconvert
+    - gocritic
+    - gofumpt
+    - durationcheck
+
+service:
+  golangci-lint-version: 1.43.0 # use the fixed version to not introduce new linters unexpectedly
+
+issues:
+  exclude-use-default: false
+  exclude:
+    - should have a package comment
+    # TODO(y4m4): Remove once all exported ident. have comments!
+    - comment on exported function
+    - comment on exported type
+    - should have comment
+    - use leading k in Go names
+    - comment on exported const
+  exclude-dirs:
+    - api/operations
