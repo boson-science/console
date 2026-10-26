@@ -1,3 +1,10 @@
+> [!NOTE]
+> **This is an independent, community-maintained fork of MinIO Console v1.7.6.**
+> It is not affiliated with or endorsed by MinIO, Inc. It is embedded in
+> [boson-science/minio](https://github.com/boson-science/minio) and receives
+> security fixes there. See [FORK.md](FORK.md) for the changes made and
+> [SECURITY.md](SECURITY.md) to report a vulnerability.
+
 # MinIO Console
 
 ![build](https://github.com/minio/console/workflows/Go/badge.svg) ![license](https://img.shields.io/badge/license-AGPL%20V3-blue)
