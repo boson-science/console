@@ -22,9 +22,11 @@ import (
 	"html/template"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/minio/console/models"
 	"github.com/minio/console/pkg/auth"
+	"github.com/minio/console/pkg/auth/idp/oauth2"
 )
 
 // Login CSRF protection for SSO logins. The login page links each provider to
@@ -33,9 +35,11 @@ import (
 // (POST /api/v1/login/oauth2/auth) only accepts a state matching that cookie,
 // so a code obtained by someone else cannot be completed in this browser.
 const (
-	oauth2LoginPath   = "/oauth_login"
-	oauth2StateCookie = "idp-state"
-	oauth2StateMaxAge = 600 // seconds a login attempt may take at the IDP
+	oauth2LoginPath    = "/oauth_login"
+	oauth2CallbackPath = "/oauth_callback"
+	oauth2HopParam     = "hop"
+	oauth2StateCookie  = "idp-state"
+	oauth2StateMaxAge  = 600 // seconds a login attempt may take at the IDP
 )
 
 var (
@@ -58,8 +62,8 @@ func newOauth2StateCookie(value string, maxAge int) *http.Cookie {
 		MaxAge:   maxAge,
 		HttpOnly: true,
 		Secure:   len(GlobalPublicCerts) > 0,
-		// Lax is required: the cookie must accompany the top-level
-		// redirect back from the IDP.
+		// The cookie is checked on the callback page's same-origin request;
+		// Lax keeps it off cross-site subresource requests.
 		SameSite: http.SameSiteLaxMode,
 	}
 }
@@ -93,6 +97,13 @@ func serveOauth2LoginStart(w http.ResponseWriter, r *http.Request) {
 		renderOauth2Error(w, http.StatusBadRequest, errUnknownOauth2Provider.Error())
 		return
 	}
+	// The state cookie is host-only, so it must be set on the host the IDP
+	// will send the browser back to. If the user is browsing the console under
+	// another host name, restart the login on the callback's origin first.
+	if bounce := oauth2LoginOnCallbackOrigin(providerCfg, r); bounce != "" {
+		http.Redirect(w, r, bounce, http.StatusFound)
+		return
+	}
 	oauth2Client, err := providerCfg.GetOauth2Provider(idpName, nil, r, GetConsoleHTTPClient(getClientIP(r)))
 	if err != nil {
 		LogError("error contacting identity provider %s: %v", idpName, err)
@@ -111,6 +122,28 @@ func serveOauth2LoginStart(w http.ResponseWriter, r *http.Request) {
 	}
 	http.SetCookie(w, newOauth2StateCookie(u.Query().Get("state"), oauth2StateMaxAge))
 	http.Redirect(w, r, loginURL, http.StatusFound)
+}
+
+// oauth2LoginOnCallbackOrigin returns the login start URL on the origin of the
+// provider's callback when the request arrived on a different host, or "" when
+// no hop is needed. The hop is taken at most once, so a proxy that rewrites the
+// Host header cannot cause a redirect loop.
+func oauth2LoginOnCallbackOrigin(providerCfg oauth2.ProviderConfig, r *http.Request) string {
+	if providerCfg.RedirectCallbackDynamic || r.URL.Query().Get(oauth2HopParam) != "" {
+		return ""
+	}
+	callback, err := url.Parse(providerCfg.RedirectCallback)
+	if err != nil || callback.Host == "" || strings.EqualFold(callback.Host, r.Host) {
+		return ""
+	}
+	start := *callback
+	start.Path = strings.TrimSuffix(callback.Path, oauth2CallbackPath) + oauth2LoginPath
+	q := url.Values{}
+	q.Set("idp", r.URL.Query().Get("idp"))
+	q.Set(oauth2HopParam, "1")
+	start.RawQuery = q.Encode()
+	start.Fragment = ""
+	return start.String()
 }
 
 var oauth2ErrorPage = template.Must(template.New("sso-error").Parse(`<!doctype html>

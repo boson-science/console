@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 
 	authApi "github.com/minio/console/api/operations/auth"
@@ -179,13 +180,39 @@ func withProviders(t *testing.T, providers oauth2.OpenIDPCfg) {
 	t.Cleanup(func() { GlobalMinIOConfig = saved })
 }
 
+func Test_oauth2LoginOnCallbackOrigin(t *testing.T) {
+	req := func(target string) *http.Request { return httptest.NewRequest(http.MethodGet, target, nil) }
+	cfg := func(callback string, dynamic bool) oauth2.ProviderConfig {
+		return oauth2.ProviderConfig{RedirectCallback: callback, RedirectCallbackDynamic: dynamic}
+	}
+	tests := []struct {
+		name string
+		cfg  oauth2.ProviderConfig
+		req  *http.Request
+		want string
+	}{
+		{"same host", cfg("https://h.example/oauth_callback", false), req("https://h.example/oauth_login?idp=a"), ""},
+		{"host differs only in case", cfg("https://H.example/oauth_callback", false), req("https://h.example/oauth_login?idp=a"), ""},
+		{"dynamic callback follows the request", cfg("https://h.example/oauth_callback", true), req("http://other/oauth_login?idp=a"), ""},
+		{"no callback configured", cfg("", false), req("http://other/oauth_login?idp=a"), ""},
+		{"different host", cfg("https://h.example/oauth_callback", false), req("http://other/oauth_login?idp=a"), "https://h.example/oauth_login?hop=1&idp=a"},
+		{"callback under a subpath", cfg("https://h.example/minio/oauth_callback", false), req("http://other/oauth_login?idp=a"), "https://h.example/minio/oauth_login?hop=1&idp=a"},
+		{"provider name is escaped", cfg("https://h.example/oauth_callback", false), req("http://other/oauth_login?idp=a%26b"), "https://h.example/oauth_login?hop=1&idp=a%26b"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, oauth2LoginOnCallbackOrigin(tt.cfg, tt.req))
+		})
+	}
+}
+
 func Test_serveOauth2LoginStart(t *testing.T) {
 	idp := newDiscoveryServer(t)
 	withProviders(t, oauth2.OpenIDPCfg{"authentik": testProviderConfig(idp.URL, "Authentik")})
 
 	t.Run("redirects to the selected provider and binds state", func(t *testing.T) {
 		w := httptest.NewRecorder()
-		serveOauth2LoginStart(w, httptest.NewRequest(http.MethodGet, oauth2LoginPath+"?idp=authentik", nil))
+		serveOauth2LoginStart(w, httptest.NewRequest(http.MethodGet, "https://console.example.com"+oauth2LoginPath+"?idp=authentik", nil))
 		assert.Equal(t, http.StatusFound, w.Code)
 
 		loc, err := url.Parse(w.Header().Get("Location"))
@@ -207,6 +234,22 @@ func Test_serveOauth2LoginStart(t *testing.T) {
 		assert.True(t, cookies[0].HttpOnly)
 		assert.Equal(t, http.SameSiteLaxMode, cookies[0].SameSite)
 		assert.Equal(t, oauth2StateMaxAge, cookies[0].MaxAge)
+	})
+
+	t.Run("other host hops to the callback origin first", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		serveOauth2LoginStart(w, httptest.NewRequest(http.MethodGet, "http://storage.example.net:9001"+oauth2LoginPath+"?idp=authentik", nil))
+		assert.Equal(t, http.StatusFound, w.Code)
+		assert.Equal(t, "https://console.example.com/oauth_login?hop=1&idp=authentik", w.Header().Get("Location"))
+		assert.Empty(t, w.Result().Cookies(), "state must be set on the callback origin, not here")
+	})
+
+	t.Run("hop is taken at most once", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		serveOauth2LoginStart(w, httptest.NewRequest(http.MethodGet, "http://rewritten-by-proxy"+oauth2LoginPath+"?idp=authentik&hop=1", nil))
+		assert.Equal(t, http.StatusFound, w.Code)
+		assert.True(t, strings.HasPrefix(w.Header().Get("Location"), idp.URL+"/authorize"))
+		assert.Len(t, w.Result().Cookies(), 1)
 	})
 
 	t.Run("unknown provider", func(t *testing.T) {
