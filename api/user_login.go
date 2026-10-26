@@ -77,6 +77,8 @@ func registerLoginHandlers(api *operations.ConsoleAPI) {
 				Secure:   len(GlobalPublicCerts) > 0,
 				SameSite: http.SameSiteLaxMode,
 			})
+			// the state has been used, discard it
+			http.SetCookie(w, newOauth2StateCookie("", -1))
 			authApi.NewLoginOauth2AuthNoContent().WriteResponse(w, p)
 		})
 	})
@@ -196,17 +198,9 @@ func getLoginDetailsResponse(params authApi.LoginDetailParams, openIDProviders o
 	}
 
 	for name, provider := range openIDProviders {
-		// initialize new oauth2 client
-
-		oauth2Client, err := provider.GetOauth2Provider(name, nil, r, GetConsoleHTTPClient(getClientIP(params.HTTPRequest)))
-		if err != nil {
+		// Only offer providers whose discovery document is reachable.
+		if _, err := provider.GetOauth2Provider(name, nil, r, GetConsoleHTTPClient(getClientIP(params.HTTPRequest))); err != nil {
 			continue
-		}
-
-		// Validate user against IDP
-		identityProvider := &auth.IdentityProvider{
-			KeyFunc: provider.GetStateKeyFunc(),
-			Client:  oauth2Client,
 		}
 
 		displayName := fmt.Sprintf("Login with SSO (%s)", name)
@@ -225,7 +219,9 @@ func getLoginDetailsResponse(params authApi.LoginDetailParams, openIDProviders o
 		}
 
 		redirectRule := models.RedirectRule{
-			Redirect:    identityProvider.GenerateLoginURL(),
+			// The login starts at a console endpoint that binds the OAuth
+			// state to this browser before redirecting to the IDP.
+			Redirect:    oauth2LoginStartURL(name),
 			DisplayName: displayName,
 			ServiceType: serviceType,
 		}
@@ -266,8 +262,15 @@ func getLoginOauth2AuthResponse(params authApi.LoginOauth2AuthParams, openIDProv
 
 	client := GetConsoleHTTPClient(getClientIP(params.HTTPRequest))
 	if len(openIDProviders) > 0 {
+		if lr == nil || lr.State == nil || lr.Code == nil {
+			return nil, ErrorWithContext(ctx, errMissingOauth2Params)
+		}
 		// we read state
 		rState := *lr.State
+		// the state must match the one issued to this browser by serveOauth2LoginStart
+		if err := checkOauth2StateCookie(r, rState); err != nil {
+			return nil, ErrorWithContext(ctx, err)
+		}
 
 		decodedRState, err := base64.StdEncoding.DecodeString(rState)
 		if err != nil {

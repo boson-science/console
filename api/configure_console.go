@@ -407,6 +407,8 @@ func FileServerMiddleware(next http.Handler) http.Handler {
 			serveWS(w, r)
 		case strings.HasPrefix(r.URL.Path, "/api"):
 			next.ServeHTTP(w, r)
+		case r.URL.Path == oauth2LoginPath:
+			serveOauth2LoginStart(w, r)
 		default:
 			spaFileHandler.ServeHTTP(w, r)
 		}
