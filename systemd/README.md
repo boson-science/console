@@ -6,7 +6,7 @@ Systemd script for MinIO Console.
 
 - Systemd script is configured to run the binary from /usr/local/bin/.
 - Systemd script is configured to run the binary as `console-user`, make sure you create this user prior using service script.
-- Download the binary. Find the relevant links for the binary https://github.com/minio/console#binary-releases.
+- Build the binary from source as described in [DEVELOPMENT.md](../DEVELOPMENT.md). This fork does not publish standalone console binaries; it ships embedded in [boson-science/minio](https://github.com/boson-science/minio).
 
 ## Create the Environment configuration file
 
