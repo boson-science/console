@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/minio/console/models"
 	"github.com/minio/console/pkg/auth"
 )
 
@@ -70,6 +71,13 @@ func checkOauth2StateCookie(r *http.Request, state string) error {
 		return errOauth2StateMismatch
 	}
 	return nil
+}
+
+// oauth2CallbackError reports a rejected callback as a client error; the
+// message is shown on the login callback page.
+func oauth2CallbackError(code int, err error) *CodedAPIError {
+	LogError("rejected SSO login callback: %v", err)
+	return &CodedAPIError{Code: code, APIError: &models.APIError{Message: err.Error(), DetailedMessage: err.Error()}}
 }
 
 // serveOauth2LoginStart redirects the browser to the selected IDP.

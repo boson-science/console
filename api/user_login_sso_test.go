@@ -145,21 +145,28 @@ func Test_getLoginOauth2AuthResponse(t *testing.T) {
 		params    authApi.LoginOauth2AuthParams
 		providers oauth2.OpenIDPCfg
 		wantErr   string // substring of the detailed error; "" means any error
+		wantCode  int    // 0 means any status
 	}{
-		{"no providers configured", params(valid, valid), oauth2.OpenIDPCfg{}, ""},
-		{"missing body", authApi.LoginOauth2AuthParams{HTTPRequest: httptest.NewRequest(http.MethodPost, "/", nil)}, providers, errMissingOauth2Params.Error()},
+		{"no providers configured", params(valid, valid), oauth2.OpenIDPCfg{}, "", 0},
+		{"missing body", authApi.LoginOauth2AuthParams{HTTPRequest: httptest.NewRequest(http.MethodPost, "/", nil)}, providers, errMissingOauth2Params.Error(), http.StatusBadRequest},
 		// login CSRF: a valid state without the browser-bound cookie is rejected
-		{"missing state cookie", params(valid, ""), providers, errOauth2StateMismatch.Error()},
-		{"state cookie from another login", params(valid, encodeOauth2State("other")), providers, errOauth2StateMismatch.Error()},
-		{"state is not base64", params("%%%", "%%%"), providers, ""},
-		{"unknown provider in state", params(encodeOauth2State("nope"), encodeOauth2State("nope")), providers, "does not exist"},
-		{"state HMAC rejected by provider", params(valid, valid), providers, ""},
+		{"missing state cookie", params(valid, ""), providers, errOauth2StateMismatch.Error(), http.StatusUnauthorized},
+		{"state cookie from another login", params(valid, encodeOauth2State("other")), providers, errOauth2StateMismatch.Error(), http.StatusUnauthorized},
+		{"state is not base64", params("%%%", "%%%"), providers, "", 0},
+		{"unknown provider in state", params(encodeOauth2State("nope"), encodeOauth2State("nope")), providers, "does not exist", 0},
+		{"state HMAC rejected by provider", params(valid, valid), providers, "", 0},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			_, err := getLoginOauth2AuthResponse(tt.params, tt.providers)
-			if assert.NotNil(t, err) && tt.wantErr != "" {
+			if !assert.NotNil(t, err) {
+				return
+			}
+			if tt.wantErr != "" {
 				assert.Contains(t, err.APIError.DetailedMessage, tt.wantErr)
+			}
+			if tt.wantCode != 0 {
+				assert.Equal(t, tt.wantCode, err.Code)
 			}
 		})
 	}

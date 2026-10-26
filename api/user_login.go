@@ -263,13 +263,13 @@ func getLoginOauth2AuthResponse(params authApi.LoginOauth2AuthParams, openIDProv
 	client := GetConsoleHTTPClient(getClientIP(params.HTTPRequest))
 	if len(openIDProviders) > 0 {
 		if lr == nil || lr.State == nil || lr.Code == nil {
-			return nil, ErrorWithContext(ctx, errMissingOauth2Params)
+			return nil, oauth2CallbackError(http.StatusBadRequest, errMissingOauth2Params)
 		}
 		// we read state
 		rState := *lr.State
 		// the state must match the one issued to this browser by serveOauth2LoginStart
 		if err := checkOauth2StateCookie(r, rState); err != nil {
-			return nil, ErrorWithContext(ctx, err)
+			return nil, oauth2CallbackError(http.StatusUnauthorized, err)
 		}
 
 		decodedRState, err := base64.StdEncoding.DecodeString(rState)
